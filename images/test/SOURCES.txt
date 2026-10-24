@@ -1,0 +1,10 @@
+helmet_*.jpg, test_video.mp4
+  Test split of Roboflow dataset capstone_rider_helmet_rtms v1 (CC BY 4.0)
+  https://universe.roboflow.com/capstone-qodg4/capstone_rider_helmet_rtms/dataset/1
+  test_video.mp4 = 6 sample images stitched into a 6-second clip (for testing video upload)
+
+nohelmet_*.jpg  (Wikimedia Commons, resized 960px)
+  01 https://commons.wikimedia.org/wiki/File:A_Motorcycle_Rider_at_the_Market,_Northern_Ghana.jpg
+  02 https://commons.wikimedia.org/wiki/File:Bodaboda_Rider.jpg
+  03 https://commons.wikimedia.org/wiki/File:Bodaboda_Riders.jpg
+  04 https://commons.wikimedia.org/wiki/File:Commercial_bike_rider_in_lagos_Nigeria.jpg
