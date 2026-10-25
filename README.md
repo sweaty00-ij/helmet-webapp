@@ -3,6 +3,10 @@
 Web application ตรวจว่าผู้ขับขี่มอเตอร์ไซค์สวมหมวกกันน็อกหรือไม่ จากภาพหรือวิดีโอ
 ใช้ YOLO11 + OpenCV + Streamlit (วิชา Image Processing and Computer Vision)
 
+**Demo:** https://helmet-webapp.streamlit.app
+
+โค้ด train โมเดล (Week 1) และ Python application (Week 2) อยู่ใน repo ของกลุ่ม
+
 ## How to Run
 
 ต้องใช้ Python 3.10–3.13
@@ -18,12 +22,12 @@ streamlit run app.py
 
 ## การใช้งาน
 
-1. แถบด้านซ้าย เลือก Input เป็น **Image** หรือ **Video**
-2. อัปโหลดไฟล์
-   - ภาพ: `.jpg .jpeg .png .bmp .webp` ได้หลายไฟล์
-   - วิดีโอ: `.mp4 .avi .mov .mkv .m4v .wmv` จะดึงเฟรมที่กระจายเท่า ๆ กันมาตรวจ ตามจำนวน "Frames from video"
-3. ปรับ confidence ของ rider และหมวก หรือเปิด **Contrast Enhancement**
-4. ดูผลได้ 3 ส่วน
+1. อัปโหลดภาพหรือวิดีโอในช่องเดียวกัน ได้หลายไฟล์ ระบบแยกประเภทจากนามสกุลไฟล์
+   - ภาพ: `.jpg .jpeg .png .bmp .webp`
+   - วิดีโอ: `.mp4 .avi .mov .mkv .m4v .wmv` ดึงออกมา 5 เฟรมที่กระจายเท่า ๆ กันตลอดวิดีโอ
+2. ทุกภาพถูกตรวจ 2 แบบ คือภาพต้นฉบับ และภาพหลัง **Contrast Enhancement ×1.5** แล้วแสดงผลเทียบกัน
+3. ดูผลได้ 4 ส่วน
+   - **Contrast Enhancement: before vs after:** ตารางเทียบผลรวมของทั้งสองแบบ
    - **Summary:** จำนวน rider, สวมหมวก, ไม่สวมหมวก และ Compliance
    - **กราฟและตารางรายภาพ:** ดาวน์โหลดเป็น CSV ได้
    - **ภาพผลลัพธ์:** 🟩 สวมหมวก 🟥 ไม่สวมหมวก 🟨 หมวก
@@ -31,14 +35,17 @@ streamlit run app.py
 ## Method
 
 ```
-Image / Video ─→ (Contrast Enhancement) ─→ YOLO11n ─→ rider + with helmet
-                                                     ─→ จับคู่หมวกกับ rider ─→ Helmet / No Helmet ─→ สถิติ
+Image / Video ─→ YOLO11n ─→ rider + with helmet
+                         ─→ จับคู่หมวกกับ rider ─→ Helmet / No Helmet ─→ สถิติ
 ```
 
 - **Model:** `yolo_10epoch_best.pt` เป็น YOLO11n ที่ fine-tune 10 epochs จาก Roboflow dataset
   [capstone_rider_helmet_rtms](https://universe.roboflow.com/capstone-qodg4/capstone_rider_helmet_rtms/dataset/1)
   มี 3 คลาส คือ `motorcycle`, `rider`, `with helmet`
-- **Image Processing:** Contrast Enhancement (`src/preprocessing.py`) ใช้เทคนิคเดียวกับตอนเทรน
+- **Image Processing:** Contrast Enhancement (`src/preprocessing.py`) เทคนิคเดียวกับที่ใช้ตอนเทรนใน Week 1
+  เว็บแสดงผลเทียบก่อน/หลังใช้เทคนิค ผลบน Test set: ยิ่งเพิ่ม contrast โมเดลยิ่งหาหมวกเจอน้อยลง
+  (rider ที่ตัดสินว่าสวมหมวกถูก: ×1.0 = 28.1%, ×1.2 = 24.9%, ×1.5 = 19.8%, ×2.0 = 15.2%)
+  เพราะโมเดลเทรนจากภาพที่ contrast ใกล้เคียงต้นฉบับ ผลตรวจหลักของเว็บจึงใช้ภาพต้นฉบับ
 - **Helmet / No Helmet:** โมเดลไม่มีคลาส "ไม่สวมหมวก" จึงตัดสินดังนี้ ถ้าจุดกึ่งกลางของกล่องหมวกอยู่ในครึ่งบนของกล่อง rider ถือว่า rider คนนั้นสวมหมวก (`src/detection.py`)
 
 ## Evaluation
@@ -72,6 +79,6 @@ python evaluate.py --test path/to/test
 │   ├── detection.py       detect, จับคู่หมวกกับ rider, วาดกรอบ, ดึงเฟรมวิดีโอ
 │   └── preprocessing.py   Contrast Enhancement
 ├── yolo_10epoch_best.pt   โมเดลหลัก
-├── images/samples/        ภาพตัวอย่างจาก Test set
+├── images/test/           ภาพ/วิดีโอสำหรับทดสอบ (ที่มา: images/test/SOURCES.txt)
 └── results/               ผลประเมิน
 ```
