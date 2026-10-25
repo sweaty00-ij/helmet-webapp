@@ -3,10 +3,6 @@
 Web application ตรวจว่าผู้ขับขี่มอเตอร์ไซค์สวมหมวกกันน็อกหรือไม่ จากภาพหรือวิดีโอ
 ใช้ YOLO11 + OpenCV + Streamlit (วิชา Image Processing and Computer Vision)
 
-**Demo:** https://final-img-helmet.streamlit.app
-
-โค้ด train โมเดล (Week 1) และ Python application (Week 2) อยู่ใน repo ของกลุ่ม
-
 ## How to Run
 
 ต้องใช้ Python 3.10–3.13
@@ -31,7 +27,6 @@ streamlit run app.py
    - **Summary:** จำนวน rider, สวมหมวก, ไม่สวมหมวก และ Compliance
    - **กราฟและตารางรายภาพ:** ดาวน์โหลดเป็น CSV ได้
    - **ภาพผลลัพธ์:** 🟩 สวมหมวก 🟥 ไม่สวมหมวก 🟨 หมวก
-5. แท็บ **Model Evaluation** แสดงผลประเมินโมเดลบน Test set
 
 ## Method
 
@@ -77,6 +72,6 @@ python evaluate.py --test path/to/test
 │   ├── detection.py       detect, จับคู่หมวกกับ rider, วาดกรอบ, ดึงเฟรมวิดีโอ
 │   └── preprocessing.py   Contrast Enhancement
 ├── yolo_10epoch_best.pt   โมเดลหลัก
-├── images/test/           ภาพ/วิดีโอสำหรับทดสอบ (ที่มา: images/test/SOURCES.txt)
+├── images/samples/        ภาพตัวอย่างจาก Test set
 └── results/               ผลประเมิน
 ```
