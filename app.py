@@ -3,7 +3,6 @@
 รัน:  streamlit run app.py
 """
 
-import json
 import tempfile
 from pathlib import Path
 
@@ -18,7 +17,6 @@ from src.preprocessing import contrast_enhance
 
 ROOT = Path(__file__).parent
 MODEL_PATH = ROOT / "yolo_10epoch_best.pt"
-RESULTS_DIR = ROOT / "results"
 
 st.set_page_config(page_title="Smart Helmet Detection", page_icon="🏍️", layout="wide")
 
@@ -168,58 +166,14 @@ def show_detection(images, names):
 
 
 # ==============================
-# Evaluation (ผลจาก evaluate.py)
-# ==============================
-
-def show_evaluation():
-
-    metrics_file = RESULTS_DIR / "metrics.json"
-    if not metrics_file.exists():
-        st.info("ยังไม่มีผลประเมิน — รัน `python evaluate.py --test path/to/test` ก่อน")
-        return
-
-    m = json.loads(metrics_file.read_text(encoding="utf-8"))
-
-    st.subheader(f"Test set: {m['test_images']} images — model `{m['model']}`")
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("mAP50", f"{m['mAP50']:.3f}")
-    c2.metric("mAP50-95", f"{m['mAP50-95']:.3f}")
-    c3.metric("Precision", f"{m['precision']:.3f}")
-    c4.metric("Recall", f"{m['recall']:.3f}")
-
-    st.markdown("**Per class**")
-    st.dataframe(pd.DataFrame(m["per_class"]).T.round(3))
-    st.caption("ค่าเฉลี่ยรวมด้านบนถูกดึงลงโดยคลาส motorcycle ซึ่งมีใน Test set แค่ 1 กล่อง "
-               "— คลาสที่แอปใช้จริงคือ rider และ with helmet")
-
-    plots = [
-        ("confusion_matrix_normalized.png", "Confusion Matrix (normalized)"),
-        ("BoxPR_curve.png", "Precision-Recall Curve"),
-        ("confusion_matrix.png", "Confusion Matrix"),
-        ("BoxF1_curve.png", "F1-Confidence Curve"),
-    ]
-    plots = [(RESULTS_DIR / f, title) for f, title in plots if (RESULTS_DIR / f).exists()]
-    for i in range(0, len(plots), 2):
-        for col, (path, title) in zip(st.columns(2), plots[i:i + 2]):
-            col.image(str(path), caption=title)
-
-
-# ==============================
 # Page
 # ==============================
 
 st.title("🏍️ Smart Helmet Detection")
 st.caption("ตรวจว่าผู้ขับขี่มอเตอร์ไซค์สวมหมวกกันน็อกหรือไม่ — YOLO11 + OpenCV")
 
-tab_detect, tab_eval = st.tabs(["Detect", "Model Evaluation"])
-
-with tab_detect:
-    images, names = get_inputs()
-    if images:
-        show_detection(images, names)
-    else:
-        st.info("อัปโหลดภาพหรือวิดีโอเพื่อเริ่มตรวจ")
-
-with tab_eval:
-    show_evaluation()
+images, names = get_inputs()
+if images:
+    show_detection(images, names)
+else:
+    st.info("อัปโหลดภาพหรือวิดีโอเพื่อเริ่มตรวจ")
