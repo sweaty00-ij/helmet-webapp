@@ -42,105 +42,117 @@ def rate(helmet, total):
 
 
 # ==============================
-# Sidebar: ตั้งค่า
+# Input: รับ Image / Video (ช่องเดียว แยกจากนามสกุลไฟล์)
 # ==============================
 
-st.sidebar.header("⚙️ Settings")
-
-input_type = st.sidebar.radio("Input", ["Image", "Video"], horizontal=True)
-n_frames = st.sidebar.slider("Frames from video", 1, 20, 5) if input_type == "Video" else None
-
-st.sidebar.subheader("Detection")
-rider_conf = st.sidebar.slider("Rider confidence", 0.05, 0.95, 0.25, 0.05)
-helmet_conf = st.sidebar.slider("Helmet confidence", 0.05, 0.95, 0.25, 0.05,
-                                help="โมเดลมักให้ confidence ของหมวกต่ำกว่า rider")
-
-st.sidebar.subheader("Image Processing")
-use_contrast = st.sidebar.checkbox("Contrast Enhancement")
-contrast_factor = st.sidebar.slider("Contrast factor", 1.0, 3.0, 1.5, 0.1, disabled=not use_contrast)
+RIDER_CONF = 0.25    # confidence ขั้นต่ำของ rider
+HELMET_CONF = 0.25   # confidence ขั้นต่ำของหมวก
+N_FRAMES = 5         # วิดีโอ: จำนวนเฟรมที่แบ่งออกมาตรวจ
+CONTRAST = 1.5      # Image Processing: Contrast Enhancement factor (เทียบผลก่อน/หลัง)
 
 
-# ==============================
-# Input: รับ Image / Video
-# ==============================
-
-def get_inputs():
-    """แสดงช่องอัปโหลด คืน (images, names) — ภาพ BGR, วิดีโอจะถูกแบ่งเป็นเฟรม"""
-
-    if input_type == "Image":
-        images, names = [], []
-        uploads = st.file_uploader("Upload image(s)", type=IMAGE_EXT, accept_multiple_files=True)
-        for f in uploads or []:
-            image = read_image(f)
-            if image is None:
-                st.warning(f"อ่านไฟล์ไม่ได้: {f.name}")
-                continue
-            images.append(image)
-            names.append(f.name)
-        return images, names
-
-    upload = st.file_uploader("Upload video", type=VIDEO_EXT)
-    if not upload:
-        return [], []
-
-    st.video(upload)
+def read_video(upload):
+    """วิดีโอที่อัปโหลด -> (frames, names) แบ่งออกมา N_FRAMES เฟรม"""
 
     # OpenCV อ่านวิดีโอจาก path เท่านั้น จึงเขียนลงไฟล์ชั่วคราวก่อน
     with tempfile.NamedTemporaryFile(suffix=Path(upload.name).suffix, delete=False) as tmp:
         tmp.write(upload.getvalue())
     try:
-        frames, names, info = extract_frames(tmp.name, n_frames)
+        frames, names, info = extract_frames(tmp.name, N_FRAMES)
     except ValueError as e:
-        st.error(f"อ่านวิดีโอไม่ได้: {e}")
+        st.error(f"อ่านวิดีโอไม่ได้: {upload.name} ({e})")
         return [], []
     finally:
         Path(tmp.name).unlink(missing_ok=True)
 
-    st.caption(f"{info['width']}x{info['height']}, {info['fps']:.0f} FPS, "
-               f"{info['frames']} frames ({info['seconds']:.1f} s) → ตรวจ {len(frames)} เฟรม")
-    return frames, names
+    st.video(upload)
+    st.caption(f"{upload.name}: {info['width']}x{info['height']}, {info['fps']:.0f} FPS, "
+               f"{info['seconds']:.1f} s → ตรวจ {len(frames)} เฟรม")
+    return frames, [f"{upload.name} {n}" for n in names]
+
+
+def get_inputs():
+    """แสดงช่องอัปโหลด คืน (images, names) — ภาพ BGR, วิดีโอจะถูกแบ่งเป็นเฟรม"""
+
+    uploads = st.file_uploader("Upload image(s) or video", type=IMAGE_EXT + VIDEO_EXT,
+                               accept_multiple_files=True)
+    images, names = [], []
+
+    for f in uploads or []:
+        if Path(f.name).suffix.lower().lstrip(".") in VIDEO_EXT:
+            frames, frame_names = read_video(f)
+            images += frames
+            names += frame_names
+            continue
+
+        image = read_image(f)
+        if image is None:
+            st.warning(f"อ่านไฟล์ไม่ได้: {f.name}")
+            continue
+        images.append(image)
+        names.append(f.name)
+
+    return images, names
 
 
 # ==============================
 # Process -> แสดงผล + สถิติ
 # ==============================
 
+def summarize(results):
+    riders = sum(r.n_riders for r in results)
+    helmet = sum(r.n_helmet for r in results)
+    return riders, helmet, riders - helmet, rate(helmet, riders)
+
+
 def show_detection(images, names):
 
     model = load_model()
 
+    # ตรวจ 2 แบบ: ภาพต้นฉบับ และภาพหลัง Contrast Enhancement
     with st.spinner("Detecting..."):
-        processed = [contrast_enhance(img, contrast_factor) if use_contrast else img for img in images]
-        results = [detect(model, img, rider_conf, helmet_conf) for img in processed]
-        annotated = [annotate(img, res) for img, res in zip(processed, results)]
+        enhanced = [contrast_enhance(img, CONTRAST) for img in images]
+        results = [detect(model, img, RIDER_CONF, HELMET_CONF) for img in images]
+        results_ce = [detect(model, img, RIDER_CONF, HELMET_CONF) for img in enhanced]
 
-    # ---------- สถิติรวม ----------
-    riders = sum(r.n_riders for r in results)
-    helmet = sum(r.n_helmet for r in results)
-    compliance = rate(helmet, riders)
+    # ---------- สถิติรวม (ภาพต้นฉบับ) ----------
+    riders, helmet, no_helmet, compliance = summarize(results)
 
     st.subheader("Summary")
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Images / Frames", len(results))
     c2.metric("Riders", riders)
     c3.metric("With helmet", helmet)
-    c4.metric("No helmet", riders - helmet)
+    c4.metric("No helmet", no_helmet)
     c5.metric("Compliance", f"{compliance:.0%}" if compliance is not None else "-")
 
+    # ---------- เทียบก่อน/หลัง Contrast Enhancement ----------
+    st.subheader("Contrast Enhancement: before vs after")
+    st.caption(f"Image Processing — เพิ่ม Contrast ×{CONTRAST} ก่อนส่งเข้า YOLO แล้วเทียบผลกับภาพต้นฉบับ")
+
+    compare_df = pd.DataFrame(
+        [summarize(results), summarize(results_ce)],
+        index=["Original", f"Contrast Enhancement ×{CONTRAST}"],
+        columns=["riders", "with_helmet", "no_helmet", "compliance_rate"],
+    )
+    st.dataframe(compare_df, column_config={"compliance_rate": st.column_config.NumberColumn(format="percent")})
+
+    # ---------- ตารางรายภาพ ----------
     stats_df = pd.DataFrame([{
         "input": name,
         "riders": r.n_riders,
         "with_helmet": r.n_helmet,
         "no_helmet": r.n_no_helmet,
-        "unmatched_helmets": len(r.unmatched_helmets),
-        "compliance_rate": rate(r.n_helmet, r.n_riders),
+        "riders (CE)": rc.n_riders,
+        "with_helmet (CE)": rc.n_helmet,
+        "no_helmet (CE)": rc.n_no_helmet,
         "inference_ms": round(r.inference_ms, 1),
-    } for name, r in zip(names, results)])
+    } for name, r, rc in zip(names, results, results_ce)])
 
     left, right = st.columns(2)
     with left:
         st.bar_chart(stats_df, x="input", y=["with_helmet", "no_helmet"],
-                     color=["#2ca02c", "#d62728"], x_label="", y_label="riders")
+                     color=["#2ca02c", "#d62728"], x_label="", y_label="riders (original)")
     with right:
         st.dataframe(stats_df, hide_index=True)
         st.download_button("⬇️ Download CSV", stats_df.to_csv(index=False), "helmet_stats.csv", "text/csv")
@@ -149,20 +161,16 @@ def show_detection(images, names):
     st.subheader("Results")
     st.caption("🟩 สวมหมวก  🟥 ไม่สวมหมวก  🟨 หมวกที่ตรวจพบ")
 
-    for name, original, enhanced, image, res in zip(names, images, processed, annotated, results):
+    for name, original, ce, r, rc in zip(names, images, enhanced, results, results_ce):
 
-        st.markdown(f"**{name}** — riders {res.n_riders}, helmet {res.n_helmet}, "
-                    f"no helmet {res.n_no_helmet}, {res.inference_ms:.0f} ms")
+        st.markdown(f"**{name}** — original: helmet {r.n_helmet}/{r.n_riders} | "
+                    f"contrast ×{CONTRAST}: helmet {rc.n_helmet}/{rc.n_riders}")
 
-        if use_contrast:
-            cols = st.columns(3)
-            cols[0].image(to_rgb(original), caption="Original")
-            cols[1].image(to_rgb(enhanced), caption=f"Contrast Enhancement (×{contrast_factor})")
-            cols[2].image(to_rgb(image), caption="Result")
-        else:
-            cols = st.columns(2)
-            cols[0].image(to_rgb(original), caption="Original")
-            cols[1].image(to_rgb(image), caption="Result")
+        cols = st.columns(4)
+        cols[0].image(to_rgb(original), caption="Original")
+        cols[1].image(to_rgb(annotate(original, r)), caption="Result (original)")
+        cols[2].image(to_rgb(ce), caption=f"Contrast Enhancement ×{CONTRAST}")
+        cols[3].image(to_rgb(annotate(ce, rc)), caption="Result (enhanced)")
 
 
 # ==============================
