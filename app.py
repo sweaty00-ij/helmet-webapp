@@ -68,8 +68,17 @@ def read_video(upload):
 
 
 def get_inputs():
+    if "uploader_key" not in st.session_state:
+        st.session_state.uploader_key = 0
+
     uploads = st.file_uploader("Upload image(s) or video", type=IMAGE_EXT + VIDEO_EXT,
-                               accept_multiple_files=True)
+                               accept_multiple_files=True,
+                               key=f"uploader_{st.session_state.uploader_key}")
+
+    if uploads and st.button("🗑️ Clear all"):
+        st.session_state.uploader_key += 1
+        st.rerun()
+
     images, names = [], []
 
     for f in uploads or []:
