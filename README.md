@@ -25,10 +25,10 @@ streamlit run app.py
 1. อัปโหลดภาพหรือวิดีโอในช่องเดียวกัน ได้หลายไฟล์ ระบบแยกประเภทจากนามสกุลไฟล์
    - ภาพ: `.jpg .jpeg .png .bmp .webp`
    - วิดีโอ: `.mp4 .avi .mov .mkv .m4v .wmv` ดึงออกมา 5 เฟรมที่กระจายเท่า ๆ กันตลอดวิดีโอ
-2. ทุกภาพถูกตรวจ 2 แบบ คือภาพต้นฉบับ และภาพหลัง **Contrast Enhancement ×1.5** แล้วแสดงผลเทียบกัน
+2. ทุกภาพถูกตรวจ 3 แบบ คือภาพต้นฉบับ, ภาพที่ลด contrast เหลือ ×0.3 และภาพจางนั้นหลังทำ **Histogram Equalization** แล้วแสดงผลเทียบกัน
 3. ดูผลได้ 4 ส่วน
-   - **Contrast Enhancement: before vs after:** ตารางเทียบผลรวมของทั้งสองแบบ
-   - **Summary:** จำนวน rider, สวมหมวก, ไม่สวมหมวก และ Compliance
+   - **Summary:** จำนวน rider, สวมหมวก, ไม่สวมหมวก และ Compliance ของภาพต้นฉบับ
+   - **Histogram Equalization: before vs after:** ตารางเทียบผลรวมของทั้งสามแบบ
    - **กราฟและตารางรายภาพ:** ดาวน์โหลดเป็น CSV ได้
    - **ภาพผลลัพธ์:** 🟩 สวมหมวก 🟥 ไม่สวมหมวก 🟨 หมวก
 
@@ -42,10 +42,10 @@ Image / Video ─→ YOLO11n ─→ rider + with helmet
 - **Model:** `yolo_10epoch_best.pt` เป็น YOLO11n ที่ fine-tune 10 epochs จาก Roboflow dataset
   [capstone_rider_helmet_rtms](https://universe.roboflow.com/capstone-qodg4/capstone_rider_helmet_rtms/dataset/1)
   มี 3 คลาส คือ `motorcycle`, `rider`, `with helmet`
-- **Image Processing:** Contrast Enhancement (`src/preprocessing.py`) เทคนิคเดียวกับที่ใช้ตอนเทรนใน Week 1
-  เว็บแสดงผลเทียบก่อน/หลังใช้เทคนิค ผลบน Test set: ยิ่งเพิ่ม contrast โมเดลยิ่งหาหมวกเจอน้อยลง
-  (rider ที่ตัดสินว่าสวมหมวกถูก: ×1.0 = 28.1%, ×1.2 = 24.9%, ×1.5 = 19.8%, ×2.0 = 15.2%)
-  เพราะโมเดลเทรนจากภาพที่ contrast ใกล้เคียงต้นฉบับ ผลตรวจหลักของเว็บจึงใช้ภาพต้นฉบับ
+- **Image Processing:** จำลองภาพคุณภาพแย่ (เช่น หมอก แสงน้อย) ด้วยการลด contrast เหลือ ×0.3
+  แล้วกู้คืนด้วย Histogram Equalization (`cv2.equalizeHist`) เฉพาะช่องความสว่าง Y ของ YCrCb สีจึงไม่เพี้ยน (`app.py`)
+  ผลบนภาพใน `images/test/` 14 ภาพ: ภาพต้นฉบับตรวจเจอ rider 15 คน, ภาพจาง ×0.3 เหลือ 8 คน
+  และหลัง Histogram Equalization กลับมาเจอ 15 คน ผลตรวจหลักของเว็บ (Summary) ใช้ภาพต้นฉบับ
 - **Helmet / No Helmet:** โมเดลไม่มีคลาส "ไม่สวมหมวก" จึงตัดสินดังนี้ ถ้าจุดกึ่งกลางของกล่องหมวกอยู่ในครึ่งบนของกล่อง rider ถือว่า rider คนนั้นสวมหมวก (`src/detection.py`)
 
 ## Evaluation
@@ -77,7 +77,7 @@ python evaluate.py --test path/to/test
 ├── evaluate.py            ประเมินโมเดลบน Test set → results/
 ├── src/
 │   ├── detection.py       detect, จับคู่หมวกกับ rider, วาดกรอบ, ดึงเฟรมวิดีโอ
-│   └── preprocessing.py   Contrast Enhancement
+│   └── preprocessing.py   Contrast Enhancement จาก Week 1 (เวอร์ชันก่อนหน้า เว็บไม่ได้เรียกใช้แล้ว)
 ├── yolo_10epoch_best.pt   โมเดลหลัก
 ├── images/test/           ภาพ/วิดีโอสำหรับทดสอบ (ที่มา: images/test/SOURCES.txt)
 └── results/               ผลประเมิน
